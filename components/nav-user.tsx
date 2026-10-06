@@ -1,5 +1,7 @@
 "use client"
 
+import * as React from "react"
+import { useRouter } from "next/navigation"
 import {
   Avatar,
   AvatarFallback,
@@ -20,7 +22,9 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, SparklesIcon, BadgeCheckIcon, CreditCardIcon, BellIcon, LogOutIcon } from "lucide-react"
+import { ChevronsUpDownIcon, BadgeCheckIcon, BellIcon, LogOutIcon } from "lucide-react"
+import { signOut } from "firebase/auth"
+import { firebaseAuth, getFirebaseLoginErrorMessage } from "@/lib/firebase"
 
 export function NavUser({
   user,
@@ -32,6 +36,30 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const router = useRouter()
+  const [signingOut, setSigningOut] = React.useState(false)
+  const [error, setError] = React.useState("")
+
+  async function handleSignOut() {
+    const auth = firebaseAuth
+    if (!auth) {
+      router.replace("/login")
+      return
+    }
+    setError("")
+    setSigningOut(true)
+    try {
+      await signOut(auth)
+      localStorage.removeItem("cskh-session-email")
+      sessionStorage.removeItem("cskh-session-uid")
+      router.replace("/login")
+    } catch (err) {
+      const code = typeof err === "object" && err && "code" in err ? String((err as { code: unknown }).code) : "auth/unknown"
+      setError(getFirebaseLoginErrorMessage(code))
+    } finally {
+      setSigningOut(false)
+    }
+  }
 
   return (
     <SidebarMenu>
@@ -71,37 +99,27 @@ export function NavUser({
                 </div>
               </div>
             </DropdownMenuLabel>
+            {error ? (
+              <>
+                <DropdownMenuSeparator />
+                <div role="alert" className="mx-1 my-1 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">{error}</div>
+              </>
+            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>
-                <SparklesIcon
-                />
-                Upgrade to Pro
+                <BadgeCheckIcon />
+                Tài khoản
+              </DropdownMenuItem>
+              <DropdownMenuItem>
+                <BellIcon />
+                Thông báo
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheckIcon
-                />
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCardIcon
-                />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <BellIcon
-                />
-                Notifications
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <LogOutIcon
-              />
-              Log out
+            <DropdownMenuItem disabled={signingOut} onSelect={(event) => { event.preventDefault(); handleSignOut(); }}>
+              <LogOutIcon className={signingOut ? "animate-pulse" : undefined} />
+              {signingOut ? "Đang đăng xuất..." : "Đăng xuất"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -109,3 +127,4 @@ export function NavUser({
     </SidebarMenu>
   )
 }
+

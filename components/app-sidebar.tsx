@@ -28,9 +28,10 @@ const data = {
     },
     {
       title: "Nhóm nghiệp vụ",
-      url: "/dashboard#issues",
+      url: "/nhomnghiepvu",
       icon: <BookOpen />,
       items: [
+        { title: "Quản lý nhóm nghiệp vụ", url: "/nhomnghiepvu" },
         { title: "Chữ ký số (CKS)", url: "/dashboard#cks" },
         { title: "Hóa đơn điện tử", url: "/dashboard#hddt" },
         { title: "Bảo hiểm xã hội", url: "/dashboard#bhxh" },

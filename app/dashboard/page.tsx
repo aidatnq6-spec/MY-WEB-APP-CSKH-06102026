@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Search, Plus, FileText, AlertTriangle, Zap, Settings, PanelLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { IssueFormDialog } from "@/components/issue-form-dialog";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -19,9 +20,10 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/co
 
 export default function CSKHDashboard() {
   const router = useRouter();
-  const { state, getFilteredIssues, activeIssue, setState, isLoading } = useAppData();
+  const { state, getFilteredIssues, setState, isLoading } = useAppData();
   const [search, setSearch] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
+  const [issueDialogOpen, setIssueDialogOpen] = useState(false);
 
   useEffect(() => {
     const auth = firebaseAuth;
@@ -43,9 +45,11 @@ export default function CSKHDashboard() {
     const q = search.trim().toLowerCase();
     return !q || `${issue.name} ${issue.summary} ${issue.script} ${issue.steps.join(" ")}`.toLowerCase().includes(q);
   });
-  const totalUrgent = state.issues.filter((i) => i.priorityLabels?.includes("urgent")).length;
-  const totalRemote = state.issues.filter((i) => i.priorityLabels?.includes("remote")).length;
+  const totalUrgent = state.issues.filter((issue) => issue.priorityLabels?.includes("urgent")).length;
+  const totalRemote = state.issues.filter((issue) => issue.priorityLabels?.includes("remote")).length;
   const totalSteps = state.issues.reduce((sum, issue) => sum + issue.steps.length, 0);
+  const activeIssue = state.issues.find((issue) => issue.id === state.activeIssueId);
+
   const handleTabChange = (categoryId: string) => {
     const category = categories.find((c) => c.id === categoryId);
     if (!category) return;
@@ -74,7 +78,7 @@ export default function CSKHDashboard() {
           <Breadcrumb><BreadcrumbList><BreadcrumbItem><BreadcrumbPage>Trung tâm hỗ trợ</BreadcrumbPage></BreadcrumbItem></BreadcrumbList></Breadcrumb>
           <div className="ml-auto flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={exportData} className="hidden sm:inline-flex">Xuất dữ liệu</Button>
-            <Button size="sm" className="gap-1.5"><Plus className="size-4" /><span className="hidden sm:inline">Thêm kịch bản</span></Button>
+            <Button size="sm" onClick={() => setIssueDialogOpen(true)} className="gap-1.5"><Plus className="size-4" /><span className="hidden sm:inline">Thêm kịch bản</span></Button>
           </div>
         </header>
         <div className="relative min-w-0 flex-1">
@@ -98,7 +102,7 @@ export default function CSKHDashboard() {
                 <Card className="min-w-0 overflow-hidden border-border/70 shadow-sm">{activeIssue ? <><CardHeader className="border-b bg-card pb-4"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div className="min-w-0 space-y-2"><div className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><category.icon className="size-3.5" />{category.name}<span>/</span><span>Kịch bản xử lý</span></div><CardTitle className="text-xl leading-snug">{activeIssue.name}</CardTitle><CardDescription>{activeIssue.summary}</CardDescription><div className="flex flex-wrap gap-1.5">{(activeIssue.priorityLabels || []).map((label) => <PriorityBadge key={label} priority={label} />)}</div></div><Button variant="outline" size="sm" onClick={handleCopy} className="shrink-0 gap-2"><FileText className="size-4" />Copy script</Button></div></CardHeader><CardContent className="space-y-6 p-4 sm:p-6"><section><div className="mb-3 flex items-center justify-between"><div><h3 className="text-sm font-semibold">Quy trình xử lý</h3><p className="mt-0.5 text-xs text-muted-foreground">Làm theo thứ tự và xác nhận với khách hàng.</p></div><Badge variant="outline" className="font-normal">{activeIssue.steps.length} bước</Badge></div>{activeIssue.steps.length ? <ol className="space-y-0">{activeIssue.steps.map((step, index) => <li key={`${activeIssue.id}-${index}`} className="relative flex gap-3 pb-4 last:pb-0"><span className="relative z-10 flex size-6 shrink-0 items-center justify-center rounded-full border bg-background text-[11px] font-semibold text-muted-foreground">{index + 1}</span>{index < activeIssue.steps.length - 1 && <span className="absolute left-3 top-6 h-[calc(100%-12px)] w-px bg-border" />}<p className="pt-0.5 text-sm leading-relaxed">{step}</p></li>)}</ol> : <p className="text-sm text-muted-foreground">Chưa có bước xử lý.</p>}</section><section className="rounded-xl border bg-muted/30 p-4"><div className="mb-3 flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold">Script Zalo gửi khách</h3><p className="mt-0.5 text-xs text-muted-foreground">Nội dung phản hồi có thể sao chép nhanh.</p></div><Button variant="outline" size="sm" onClick={handleCopy} className="h-8 shrink-0 bg-background">Sao chép</Button></div><pre className="whitespace-pre-wrap font-sans text-sm leading-6 text-foreground/85">{activeIssue.script || "Chưa có script phản hồi."}</pre></section>{activeIssue.escalation && <section className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-900 dark:bg-amber-950/20"><h3 className="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200"><AlertTriangle className="size-4" />Khi nào cần leo thang?</h3><p className="mt-2 text-sm leading-relaxed text-amber-900/80 dark:text-amber-100/80">{activeIssue.escalation}</p></section>}</CardContent></> : <CardContent className="flex min-h-80 flex-col items-center justify-center p-8 text-center"><span className="mb-3 flex size-12 items-center justify-center rounded-2xl bg-muted"><FileText className="size-5 text-muted-foreground" /></span><h3 className="text-sm font-semibold">Chọn một kịch bản</h3><p className="mt-1 max-w-xs text-sm text-muted-foreground">Chọn lỗi từ danh sách bên trái để xem checklist và mẫu phản hồi khách hàng.</p></CardContent>}</Card>
               </div></TabsContent>)}
             </Tabs>
-            <div className="flex flex-col justify-between gap-2 border-t pt-4 text-xs text-muted-foreground sm:flex-row sm:items-center"><span>CSKH Script · Thư viện hỗ trợ nội bộ</span><span>Dữ liệu hiện được lưu trên thiết bị này</span></div>
+            <IssueFormDialog open={issueDialogOpen} onOpenChange={setIssueDialogOpen} state={state} setState={setState} />
           </main>
         </div>
       </SidebarInset>
